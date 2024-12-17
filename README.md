@@ -1,8 +1,11 @@
 # plugin-mongodb
-// TODO(user): Add simple overview of use/purpose
+A kubernetes operator to manage mongodb resources in a kubernetes cluster
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+This operator helps you install and manage various mongodb installations like 
+
+- Standalone Service (runs mongodb in a single pod)
+- Standalone Database (create mongodb databases based on kubernetes resources)
 
 ## Getting Started
 
@@ -88,9 +91,6 @@ Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project
 ```sh
 kubectl apply -f https://raw.githubusercontent.com/<org>/plugin-mongodb/<tag or branch>/dist/install.yaml
 ```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
