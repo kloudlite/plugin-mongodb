@@ -1,0 +1,9 @@
+apiVersion: plugin-mongodb.kloudlite.github.com/v1
+kind: StandaloneService
+metadata:
+  labels:
+    app.kubernetes.io/name: plugin-mongodb
+    app.kubernetes.io/managed-by: kustomize
+  name: standaloneservice-sample
+spec:
+  # TODO(user): Add fields here

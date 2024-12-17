@@ -1,8 +1,11 @@
----
+# permissions for end users to edit standaloneservices.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: manager-role
+  labels:
+    app.kubernetes.io/name: plugin-mongodb
+    app.kubernetes.io/managed-by: kustomize
+  name: standaloneservice-editor-role
 rules:
 - apiGroups:
   - plugin-mongodb.kloudlite.github.com
@@ -19,14 +22,6 @@ rules:
 - apiGroups:
   - plugin-mongodb.kloudlite.github.com
   resources:
-  - standaloneservices/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - plugin-mongodb.kloudlite.github.com
-  resources:
   - standaloneservices/status
   verbs:
   - get
-  - patch
-  - update

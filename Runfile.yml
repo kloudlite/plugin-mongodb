@@ -46,6 +46,10 @@ tasks:
     #     - kind
     # vars:
     #   version: '$version | default "v1"'
-    cmds:
+    cmd:
       - |
         kubebuilder create api --version $version --kind $kind --resource --controller
+
+  build:
+    cmd:
+      - go build -o ./bin/plugin-mongodb ./cmd
