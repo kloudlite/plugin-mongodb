@@ -1,3 +1,4 @@
 .direnv
 bin
 go.work*
+.build

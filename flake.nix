@@ -15,7 +15,6 @@
           # hardeningDisable = [ "all" ];
 
           buildInputs = with pkgs; [
-
             (stdenv.mkDerivation rec {
               name = "run";
               pname = "run";
@@ -40,6 +39,7 @@
           ];
 
           shellHook = ''
+            export PATH="$PWD/bin:$PATH"
           '';
         };
       }

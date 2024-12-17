@@ -1,3 +1,6 @@
+env:
+  binary_dir: .build
+
 tasks:
   default:
     silent: true
@@ -52,4 +55,27 @@ tasks:
 
   build:
     cmd:
-      - go build -o ./bin/plugin-mongodb ./cmd
+      - go build -o ./$binary_dir/plugin-mongodb ./cmd
+
+  kustomize:
+    env:
+      binary_dir:
+        required: true
+    cmd:
+      - make kustomize # installs kustomize if not installed
+      - mkdir -p $binary_dir
+      - |+
+        rm -rf $binary_dir/config
+        cp -r config $binary_dir/config
+
+        pushd $binary_dir/config/manager 
+        kustomize edit set image controller="MY_IMAGE:latest"
+        popd
+
+        ls $binary_dir/config/default
+        pushd $binary_dir/config/default
+        kustomize edit set namespace {{.Release.Namespace}}
+        kustomize edit set nameprefix {{.Release.Name}}-
+        popd
+
+        kustomize build $binary_dir/config/default
