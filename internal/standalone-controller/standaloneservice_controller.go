@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,7 +157,7 @@ func (r *StandaloneServiceReconciler) finalize(req *reconciler.Request[*v1.Stand
 
 func (r *StandaloneServiceReconciler) patchDefaults(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	ctx, obj := req.Context(), req.Object
-	check := reconciler.NewRunningCheck("finalizing", req)
+	check := reconciler.NewRunningCheck(patchDefaults, req)
 
 	hasUpdate := false
 
@@ -175,7 +176,7 @@ func (r *StandaloneServiceReconciler) patchDefaults(req *reconciler.Request[*v1.
 			return check.Failed(err)
 		}
 
-		return check.StillRunning(fmt.Errorf("waiting for reconcilation"))
+		return check.StillRunning(fmt.Errorf("waiting for reconcilation")).RequeueAfter(1 * time.Second)
 	}
 
 	return check.Completed()
@@ -417,6 +418,14 @@ func (r *StandaloneServiceReconciler) createStatefulSet(req *reconciler.Request[
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *StandaloneServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Client == nil {
+		r.Client = mgr.GetClient()
+	}
+
+	if r.Scheme == nil {
+		r.Scheme = mgr.GetScheme()
+	}
+
 	builder := ctrl.NewControllerManagedBy(mgr).For(&v1.StandaloneService{}).Named(r.GetName())
 	builder.Owns(&appsv1.StatefulSet{})
 	builder.Owns(&corev1.Service{})
