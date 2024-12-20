@@ -19,67 +19,79 @@ package v1
 import (
 	"github.com/kloudlite/operator/toolkit/plugin"
 	"github.com/kloudlite/operator/toolkit/reconciler"
-	types "github.com/kloudlite/operator/toolkit/types"
+	"github.com/kloudlite/operator/toolkit/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// StandaloneServiceSpec defines the desired state of StandaloneService.
-type StandaloneServiceSpec struct {
-	NodeSelector map[string]string         `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration       `json:"tolerations,omitempty"`
-	Resources    types.ResourceWithStorage `json:"resources,omitempty"`
+type JobParams struct {
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Resources    types.Resource      `json:"resources,omitempty"`
+
+	JobName string `json:"jobName,omitempty"`
 }
 
-// StandaloneServiceStatus defines the observed state of StandaloneService.
-type StandaloneServiceStatus struct{}
+type ResourceRef struct {
+	metav1.TypeMeta `json:",inline"`
+	Name            string `json:"name"`
+	Namespace       string `json:"namespace"`
+}
+
+// StandaloneDatabaseSpec defines the desired state of StandaloneDatabase.
+type StandaloneDatabaseSpec struct {
+	JobParams         JobParams   `json:"jobParams,omitempty"`
+	ManagedServiceRef ResourceRef `json:"managedServiceRef"`
+}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+//+kubebuilder:printcolumn:JSONPath=".spec.targetNamespace",name="target-ns",type=string
 //+kubebuilder:printcolumn:JSONPath=".status.lastReconcileTime",name=Seen,type=date
 //+kubebuilder:printcolumn:JSONPath=".metadata.annotations.kloudlite\\.io\\/operator\\.checks",name=Checks,type=string
+//+kubebuilder:printcolumn:JSONPath=".spec.suspend",name=Suspend,type=boolean
 //+kubebuilder:printcolumn:JSONPath=".metadata.annotations.kloudlite\\.io\\/operator\\.resource\\.ready",name=Ready,type=string
 //+kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name=Age,type=date
 
-// StandaloneService is the Schema for the standaloneservices API.
-type StandaloneService struct {
+// StandaloneDatabase is the Schema for the standalonedatabases API.
+type StandaloneDatabase struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   StandaloneServiceSpec `json:"spec,omitempty"`
-	Export plugin.Export         `json:"export,omitempty"`
+	Spec   StandaloneDatabaseSpec `json:"spec,omitempty"`
+	Export plugin.Export          `json:"export,omitempty"`
 
 	Output corev1.SecretReference `json:"output,omitempty"`
 	Status reconciler.Status      `json:"status,omitempty"`
 }
 
-func (s *StandaloneService) EnsureGVK() {
+func (s *StandaloneDatabase) EnsureGVK() {
 	if s != nil {
-		s.SetGroupVersionKind(GroupVersion.WithKind("StandaloneService"))
+		s.SetGroupVersionKind(GroupVersion.WithKind("StandaloneDatabase"))
 	}
 }
 
-func (s *StandaloneService) GetStatus() *reconciler.Status {
+func (s *StandaloneDatabase) GetStatus() *reconciler.Status {
 	return &s.Status
 }
 
-func (s *StandaloneService) GetEnsuredLabels() map[string]string {
+func (s *StandaloneDatabase) GetEnsuredLabels() map[string]string {
 	return map[string]string{}
 }
 
-func (s *StandaloneService) GetEnsuredAnnotations() map[string]string {
+func (s *StandaloneDatabase) GetEnsuredAnnotations() map[string]string {
 	return map[string]string{}
 }
 
 // +kubebuilder:object:root=true
 
-// StandaloneServiceList contains a list of StandaloneService.
-type StandaloneServiceList struct {
+// StandaloneDatabaseList contains a list of StandaloneDatabase.
+type StandaloneDatabaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []StandaloneService `json:"items"`
+	Items           []StandaloneDatabase `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&StandaloneService{}, &StandaloneServiceList{})
+	SchemeBuilder.Register(&StandaloneDatabase{}, &StandaloneDatabaseList{})
 }
