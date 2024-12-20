@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package standalone_controller
+package service
 
 import (
 	"context"
@@ -29,24 +29,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/kloudlite/operator/toolkit/errors"
 	fn "github.com/kloudlite/operator/toolkit/functions"
 	"github.com/kloudlite/operator/toolkit/reconciler"
 	stepResult "github.com/kloudlite/operator/toolkit/reconciler/step-result"
 	v1 "github.com/kloudlite/plugin-mongodb/api/v1"
+	"github.com/kloudlite/plugin-mongodb/internal/standalone/types"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// StandaloneServiceReconciler reconciles a StandaloneService object
-type StandaloneServiceReconciler struct {
+// Reconciler reconciles a StandaloneService object
+type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Env    Env
 }
 
 // GetName implements reconciler.Reconciler.
-func (r *StandaloneServiceReconciler) GetName() string {
+func (r *Reconciler) GetName() string {
 	return "plugin-mongodb-standalone-service"
 }
 
@@ -56,6 +58,7 @@ const (
 	createService           string = "create-service"
 	createAccessCredentials string = "create-access-credentials"
 	createStatefulSet       string = "create-statefulset"
+	processExports          string = "process-exports"
 
 	cleanupOwnedResources string = "cleanupOwnedResources"
 )
@@ -67,17 +70,7 @@ const (
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaim,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the StandaloneService object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
-func (r *StandaloneServiceReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	req, err := reconciler.NewRequest(ctx, r.Client, request.NamespacedName, &v1.StandaloneService{})
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -111,6 +104,7 @@ func (r *StandaloneServiceReconciler) Reconcile(ctx context.Context, request ctr
 		{Name: createPVC, Title: "MongoDB Helm Applied"},
 		{Name: createAccessCredentials, Title: "MongoDB Helm Ready"},
 		{Name: createStatefulSet, Title: "MongoDB StatefulSets Ready"},
+		{Name: processExports, Title: "process exports"},
 	}); !step.ShouldProceed() {
 		return step.ReconcilerResponse()
 	}
@@ -135,11 +129,15 @@ func (r *StandaloneServiceReconciler) Reconcile(ctx context.Context, request ctr
 		return step.ReconcilerResponse()
 	}
 
+	if step := r.processExports(req); !step.ShouldProceed() {
+		return step.ReconcilerResponse()
+	}
+
 	req.Object.Status.IsReady = true
 	return ctrl.Result{}, nil
 }
 
-func (r *StandaloneServiceReconciler) finalize(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+func (r *Reconciler) finalize(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	check := reconciler.NewRunningCheck("finalizing", req)
 
 	if step := req.EnsureCheckList([]reconciler.CheckMeta{
@@ -155,7 +153,7 @@ func (r *StandaloneServiceReconciler) finalize(req *reconciler.Request[*v1.Stand
 	return req.Finalize()
 }
 
-func (r *StandaloneServiceReconciler) patchDefaults(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+func (r *Reconciler) patchDefaults(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	ctx, obj := req.Context(), req.Object
 	check := reconciler.NewRunningCheck(patchDefaults, req)
 
@@ -169,6 +167,19 @@ func (r *StandaloneServiceReconciler) patchDefaults(req *reconciler.Request[*v1.
 	if obj.Output.Namespace == "" {
 		hasUpdate = true
 		obj.Output.Namespace = obj.Namespace
+	}
+
+	if obj.Export.Template == "" {
+		hasUpdate = true
+		replacer := strings.NewReplacer("$SECRET_NAME$", obj.Output.Name)
+		obj.Export.Template = replacer.Replace(strings.TrimSpace(`
+USERNAME: {{ secret "$SECRET_NAME$/ROOT_USERNAME" }}
+PASSWORD: {{ secret "$SECRET_NAME$/ROOT_PASSWORD" }}
+HOST: {{ secret "$SECRET_NAME$/HOST" }}
+PORT: {{ secret "$SECRET_NAME$/PORT" }}
+DB_NAME: {{ secret "$SECRET_NAME$/DB_NAME" }}
+URI: {{ secret "$SECRET_NAME$/URI" }}
+`))
 	}
 
 	if hasUpdate {
@@ -190,7 +201,7 @@ const (
 	StandaloneServiceComponentLabel = "plugin-mongodb.kloudlite.github.com/component"
 )
 
-func (r *StandaloneServiceReconciler) createService(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+func (r *Reconciler) createService(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	ctx, obj := req.Context(), req.Object
 	check := reconciler.NewRunningCheck(createService, req)
 
@@ -224,7 +235,7 @@ func (r *StandaloneServiceReconciler) createService(req *reconciler.Request[*v1.
 	return check.Completed()
 }
 
-func (r *StandaloneServiceReconciler) createPVC(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+func (r *Reconciler) createPVC(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	ctx, obj := req.Context(), req.Object
 	check := reconciler.NewRunningCheck(createPVC, req)
 
@@ -251,7 +262,7 @@ func (r *StandaloneServiceReconciler) createPVC(req *reconciler.Request[*v1.Stan
 	return check.Completed()
 }
 
-func (r *StandaloneServiceReconciler) createAccessCredentials(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+func (r *Reconciler) createAccessCredentials(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	ctx, obj := req.Context(), req.Object
 	check := reconciler.NewRunningCheck(createAccessCredentials, req)
 
@@ -271,7 +282,7 @@ func (r *StandaloneServiceReconciler) createAccessCredentials(req *reconciler.Re
 			port := "27017"
 
 			dbName := "admin"
-			out := OutputCredentials{
+			out := types.ServiceCredentials{
 				RootUsername: username,
 				RootPassword: password,
 				DBName:       dbName,
@@ -312,7 +323,7 @@ func (r *StandaloneServiceReconciler) createAccessCredentials(req *reconciler.Re
 	return check.Completed()
 }
 
-func (r *StandaloneServiceReconciler) createStatefulSet(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+func (r *Reconciler) createStatefulSet(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
 	ctx, obj := req.Context(), req.Object
 	check := reconciler.NewRunningCheck(createStatefulSet, req)
 
@@ -416,8 +427,43 @@ func (r *StandaloneServiceReconciler) createStatefulSet(req *reconciler.Request[
 	return check.Completed()
 }
 
+func (r *Reconciler) processExports(req *reconciler.Request[*v1.StandaloneService]) stepResult.Result {
+	ctx, obj := req.Context(), req.Object
+	check := reconciler.NewRunningCheck(processExports, req)
+
+	if obj.Export.ViaSecret == "" {
+		return check.Failed(fmt.Errorf("exports.viaSecret must be specified"))
+	}
+
+	if obj.Export.Template == "" {
+		return check.Completed()
+	}
+
+	valuesMap := struct {
+		HelmReleaseName string
+	}{
+		HelmReleaseName: obj.Name,
+	}
+
+	m, err := obj.Export.ParseKV(ctx, r.Client, obj.Namespace, valuesMap)
+	if err != nil {
+		return check.Failed(errors.NewEf(err, ""))
+	}
+
+	exportSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: obj.Export.ViaSecret, Namespace: obj.Namespace}}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, exportSecret, func() error {
+		exportSecret.Data = nil
+		exportSecret.StringData = m
+		return nil
+	}); err != nil {
+		return check.Failed(errors.NewEf(err, "creating/updating export secret"))
+	}
+
+	return check.Completed()
+}
+
 // SetupWithManager sets up the controller with the Manager.
-func (r *StandaloneServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Client == nil {
 		r.Client = mgr.GetClient()
 	}

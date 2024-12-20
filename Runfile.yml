@@ -79,3 +79,10 @@ tasks:
         popd
 
         kustomize build $binary_dir/config/default
+
+
+  dev:
+    dotenv:
+      - .secrets/env
+    cmd:
+      - make run

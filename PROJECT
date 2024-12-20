@@ -16,4 +16,12 @@ resources:
   kind: StandaloneService
   path: github.com/kloudlite/plugin-mongodb/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: plugin-mongodb.kloudlite.github.com
+  kind: StandaloneDatabase
+  path: github.com/kloudlite/plugin-mongodb/api/v1
+  version: v1
 version: "3"

@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/plugin-mongodb.kloudlite.github.com_standaloneservices.yaml
+- bases/plugin-mongodb.kloudlite.github.com_standalonedatabases.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

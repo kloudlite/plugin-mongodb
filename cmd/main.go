@@ -35,8 +35,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/kloudlite/operator/toolkit/kubectl"
 	pluginmongodbkloudlitegithubcomv1 "github.com/kloudlite/plugin-mongodb/api/v1"
-	standalone_controller "github.com/kloudlite/plugin-mongodb/internal/standalone-controller"
+	st_database_controller "github.com/kloudlite/plugin-mongodb/internal/standalone/database"
+	st_service_controller "github.com/kloudlite/plugin-mongodb/internal/standalone/service"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -142,11 +144,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&standalone_controller.StandaloneServiceReconciler{
+	yamlClient, err := kubectl.NewYAMLClient(mgr.GetConfig(), kubectl.YAMLClientOpts{})
+	if err != nil {
+		setupLog.Error(err, "unable to create YAML client")
+		os.Exit(1)
+	}
+
+	_ = st_service_controller.Reconciler{}
+	if err = (&st_service_controller.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "StandaloneService")
+		os.Exit(1)
+	}
+
+	e, err := st_database_controller.LoadEnv()
+	if err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StandaloneDatabase")
+		os.Exit(1)
+	}
+
+	if err = (&st_database_controller.Reconciler{
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		Env:        e,
+		YAMLClient: yamlClient,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "StandaloneDatabase")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
