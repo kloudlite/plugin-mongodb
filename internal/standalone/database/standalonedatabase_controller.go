@@ -18,6 +18,7 @@ package database
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -50,9 +51,10 @@ type Reconciler struct {
 	Env    *Env
 
 	YAMLClient kubectl.YAMLClient
-
-	templateCreateDBJob []byte
 }
+
+//go:embed templates/create-db-job.yml.tpl
+var templateCreateDBJob []byte
 
 // GetName implements reconciler.Reconciler.
 func (r *Reconciler) GetName() string {
@@ -310,7 +312,7 @@ func (r *Reconciler) createDBJob(req *reconciler.Request[*v1.StandaloneDatabase]
 	// }
 
 	if job == nil {
-		b, err := templates.ParseBytes(r.templateCreateDBJob, templates.CreateDBJobParams{
+		b, err := templates.ParseBytes(templateCreateDBJob, templates.CreateDBJobParams{
 			JobMetadata: metav1.ObjectMeta{
 				Name:      obj.Spec.JobParams.JobName,
 				Namespace: obj.Namespace,
@@ -345,7 +347,7 @@ func (r *Reconciler) createDBJob(req *reconciler.Request[*v1.StandaloneDatabase]
 
 	if !isMyJob {
 		if !job_helper.HasJobFinished(ctx, r.Client, job) {
-			return check.Failed(fmt.Errorf("waiting for previous jobs to finish execution"))
+			return check.Failed(fmt.Errorf("waiting for previous jobs to finish execution")).NoRequeue()
 		}
 
 		if err := job_helper.DeleteJob(ctx, r.Client, job.Namespace, job.Name); err != nil {
@@ -420,19 +422,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("yaml client must be set")
 	}
 
-	var err error
-	r.templateCreateDBJob, err = templates.Read(templates.CreateDBJobTemplate)
-	if err != nil {
-		return err
-	}
-
-	er := mgr.GetEventRecorderFor(r.GetName())
-
 	builder := ctrl.NewControllerManagedBy(mgr).For(&v1.StandaloneDatabase{}).Named(r.GetName())
 	builder.Owns(&corev1.Secret{})
 	builder.Owns(&batchv1.Job{})
 	builder.WithOptions(controller.Options{MaxConcurrentReconciles: r.Env.MaxConcurrentReconciles})
-	builder.WithEventFilter(reconciler.ReconcileFilter(er))
+	builder.WithEventFilter(reconciler.ReconcileFilter(mgr.GetEventRecorderFor(r.GetName())))
 
 	return builder.Complete(r)
 }

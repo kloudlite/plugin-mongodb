@@ -7,8 +7,8 @@ spec:
       labels: {{.PodLabels | toJson }}
       annotations: {{.PodAnnotations | toJson }}
     spec:
-      tolerations: {{.Tolerations | toYAML | nindent 10}}
-      nodeSelector: {{.NodeSelector | toYAML | nindent 10}}
+      tolerations: {{.Tolerations | toJson }}
+      nodeSelector: {{.NodeSelector | toJson }}
 
       restartPolicy: "OnFailure"
 
