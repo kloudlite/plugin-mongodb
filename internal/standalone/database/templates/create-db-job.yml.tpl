@@ -72,10 +72,12 @@ spec:
                   }
                 ]
               })
-            }
+            } else {
+              db.changeUserPassword("$NEW_USERNAME", "$NEW_PASSWORD")
+            } 
+
 
             EOF
             
-            echo connecting to "$MONGODB_URI"
             mongosh "$MONGODB_URI" < /tmp/mongoscript.js
 
