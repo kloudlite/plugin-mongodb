@@ -196,6 +196,11 @@ URI: {{ secret "$SECRET_NAME$/URI" }}
 `))
 	}
 
+	if obj.Export.ViaSecret == "" {
+		hasUpdate = true
+		obj.Export.ViaSecret = obj.Name + "-export"
+	}
+
 	if hasUpdate {
 		if err := r.Update(ctx, obj); err != nil {
 			return check.Failed(err)
