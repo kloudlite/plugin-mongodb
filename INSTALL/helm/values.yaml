@@ -1,0 +1,8 @@
+image:
+  repository: "ghcr.io/kloudlite/plugin-mongodb"
+  tag: "latest"
+  pullPolicy: "Always"
+
+serviceAccount:
+  create: true
+  name: ""

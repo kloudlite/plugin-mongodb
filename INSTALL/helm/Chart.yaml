@@ -1,0 +1,7 @@
+apiVersion: v2
+name: plugin-mongodb
+description: Helm chart for installing mongodb plugin into kubernetes
+
+type: application
+version: 0.1.0
+appVersion: "1.16.0"

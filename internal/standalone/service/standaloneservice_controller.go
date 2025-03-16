@@ -104,7 +104,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.
 		{Name: createPVC, Title: "MongoDB Helm Applied"},
 		{Name: createAccessCredentials, Title: "MongoDB Helm Ready"},
 		{Name: createStatefulSet, Title: "MongoDB StatefulSets Ready"},
-		{Name: processExports, Title: "process exports"},
 	}); !step.ShouldProceed() {
 		return step.ReconcilerResponse()
 	}
@@ -224,7 +223,9 @@ func (r *Reconciler) createService(req *reconciler.Request[*v1.StandaloneService
 		}
 
 		svc.Spec.Selector = fn.MapMerge(
-			fn.MapFilter(obj.GetLabels(), func(k, v string) bool { return !strings.HasPrefix(k, "kloudlite.io/operator.") }),
+			fn.MapFilter(obj.GetLabels(), func(k, v string) bool {
+				return strings.HasPrefix(k, "kloudlite.io/") && !strings.HasPrefix(k, "kloudlite.io/operator.")
+			}),
 			map[string]string{StandaloneServiceComponentLabel: "statefulset"},
 		)
 		return nil
@@ -334,7 +335,9 @@ func (r *Reconciler) createStatefulSet(req *reconciler.Request[*v1.StandaloneSer
 		sts.SetOwnerReferences([]metav1.OwnerReference{fn.AsOwner(obj, true)})
 
 		selectorLabels := fn.MapMerge(
-			fn.MapFilterWithPrefix(obj.GetLabels(), "kloudlite.io/"),
+			fn.MapFilter(obj.GetLabels(), func(k, v string) bool {
+				return strings.HasPrefix(k, "kloudlite.io/") && !strings.HasPrefix(k, "kloudlite.io/operator.")
+			}),
 			map[string]string{StandaloneServiceComponentLabel: "statefulset"},
 		)
 

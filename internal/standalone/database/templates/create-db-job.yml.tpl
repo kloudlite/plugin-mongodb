@@ -19,11 +19,11 @@ spec:
 
           resources:
             requests:
-              cpu: 500m
-              memory: 1000Mi
+              cpu: 100m
+              memory: 100Mi
             limits:
-              cpu: 500m
-              memory: 1000Mi
+              cpu: 200m
+              memory: 200Mi
 
           env: &env
             - name: MONGODB_URI

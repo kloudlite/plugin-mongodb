@@ -1,0 +1,11 @@
+apiVersion: plugin-mongodb.kloudlite.github.com/v1
+kind: StandaloneDatabase
+metadata:
+  name: auth-db
+  namespace: cmsvc-mongodb
+spec:
+  managedServiceRef:
+    apiVersion: "plugin-mongodb.kloudlite.github.com/v1"
+    kind: "StandaloneService"
+    name: "mongodb"
+    namespace: "cmsvc-mongodb"

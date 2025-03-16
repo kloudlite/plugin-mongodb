@@ -45,8 +45,6 @@ spec:
                 type: string
               viaSecret:
                 type: string
-            required:
-            - viaSecret
             type: object
           kind:
             description: |-
